@@ -28,7 +28,7 @@ print(env.step(0))
 
 S_shape = (obs_space[0].n, obs_space[1].n, obs_space[2].n)
 PI = np.ones((*S_shape, 2), dtype=np.float) / 2  # 行动概率
-Q = np.zeros((*S_shape, 2), dtype=np.float)  # 行动回报
+Q = np.ones((*S_shape, 2), dtype=np.float) * -100  # 行动回报
 count_Q = np.zeros(Q.shape)  # 统计采取这个行动(s, a)的次数
 
 actions = np.array([0, 1])
@@ -64,10 +64,32 @@ for i in range(100000):
                     Q[s_a] = average
                     PI[s] = one_hot(2, np.argmax(Q[s]))
 
+
+R = 0
+cards = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 10]) # JQK is 10
+n = 1000
+
+for i in range(n):
+    my_hand, dealer, ace = env.reset()
+    done = False
+    while not done:
+
+        s = (my_hand, dealer, int(ace))
+        action = np.argmax(Q[s])
+        obs, reward, done, _ = env.step(action)
+        my_hand, dealer, ace = obs
+
+        if done:
+            R += reward
+
+print("Monte Carlo Exploring-start 选择，预期收入为：", R/n)
+
 X = np.arange(obs_space[1].n)
 Y = np.arange(obs_space[0].n)
 X, Y = np.meshgrid(X, Y)
-Z = Q[:, :, 0, 0]
+V = np.max(Q, axis=-1)
+Z = V[:, :, 0]
+Z = np.clip(Z, -1, 1)
 
 fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
