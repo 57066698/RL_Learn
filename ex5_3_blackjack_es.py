@@ -4,7 +4,10 @@ import matplotlib.pylab as plt
 from mpl_toolkits.mplot3d import Axes3D
 
 """
-    Frist-Visit prediction
+    Monte Carlo Exploring-Starts
+    将PI(s)设置成 argmax(Q(s, A))
+    ----------------------------
+    
     21点游戏
     env:
     起手一人拿2张, JQK算10点，2-10算2-10点，1算1点或者10点(没爆就算10点)
@@ -23,90 +26,52 @@ print(env.reset())
 print(env.action_space)
 print(env.step(0))
 
-R = 0
+S_shape = (obs_space[0].n, obs_space[1].n, obs_space[2].n)
+PI = np.ones((*S_shape, 2), dtype=np.float) / 2  # 行动概率
+Q = np.zeros((*S_shape, 2), dtype=np.float)  # 行动回报
+count_Q = np.zeros(Q.shape)  # 统计采取这个行动(s, a)的次数
 
-for _ in range(1000):
-    my_hand, dealer, ace = env.reset()
-    done = False
-    while not done:
-        done = False
-        if np.random.rand(1) > 0.5:
-            obs, reward, done, _ = env.step(1)
-            R += reward
-        else:
-            obs, reward, done, _ = env.step(0)
-            if done:
-                R += reward
+actions = np.array([0, 1])
 
 
-print("随机选择, 预期收益为:", R/1000.0)
-
-V = np.zeros((obs_space[0].n, obs_space[1].n, obs_space[2].n), dtype=np.float)
-count_V = np.zeros(V.shape)  # 统计进入这个状态的次数
+def one_hot(n, i):
+    arr = np.zeros(n)
+    arr[i] = 1
+    return arr
 
 
 for i in range(100000):
-    S = []
+    Q_episode = []
     my_hand, dealer, ace = env.reset()
     done = False
     while not done:
         done = False
-        if np.random.rand(1) > 0.5:
-            obs, reward, done, _ = env.step(1)
-            my_hand, dealer, ace = obs
-            S.append((my_hand, dealer, int(ace)))
+        s = (my_hand, dealer, int(ace))
+        action = np.random.choice(actions, p=PI[s])
+        obs, reward, done, _ = env.step(action)
+        if not done:
+            Q_episode.append((s, action))
+            my_hand, reward, done = obs
         else:
-            obs, reward, done, _ = env.step(0)
-
-        if done:
             G = reward
-            for i in range(len(S)-1, -1, -1):
+            for i in range(len(Q_episode) - 1, -1, -1):
                 G = 1.0 * G
-                s = S[i]
-                if s not in S[i+1:]:
-                    average = (count_V[s] * V[s] + G) / (count_V[s] + 1)
-                    count_V[s] += 1
-                    V[s] = average
+                if Q_episode[i] not in Q_episode[i + 1:]:
+                    s, a = Q_episode[i]
+                    s_a = (*s, a)
+                    average = (Q[s_a]*count_Q[s_a] + G) / (count_Q[s_a] + 1)
+                    count_Q[s_a] += 1
+                    Q[s_a] = average
+                    PI[s] = one_hot(2, np.argmax(Q[s]))
 
 X = np.arange(obs_space[1].n)
 Y = np.arange(obs_space[0].n)
 X, Y = np.meshgrid(X, Y)
-Z = V[:, :, 0]
+Z = Q[:, :, 0, 0]
 
 fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
 ax.plot_surface(X, Y, Z, rstride=1, cstride=1, cmap=plt.get_cmap('rainbow'))
 plt.show()
-
-# test 在12以上时，将拿牌的概率收益相加与自身对比，考虑拿牌还是揭牌
-# sum(prop(s_) * V(s_)) vs V(s)
-
-R = 0
-cards = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 10]) # JQK is 10
-n = 1000
-
-for i in range(n):
-    my_hand, dealer, ace = env.reset()
-    done = False
-    while not done:
-        if my_hand <= 11:
-            obs, reward, done, _ = env.step(1)
-        else:
-            draw_prob = np.ones(len(cards)) / len(cards)
-            draw_hand = my_hand + cards
-            draw_value = V[draw_hand.tolist(), dealer, int(ace)]
-            draw_value[0] = V[draw_hand[0], dealer, 1]  # 抽到1要把ace置为1
-            draw_V = np.sum(draw_prob * draw_value)
-
-            if draw_V > V[my_hand, dealer, int(ace)]:
-                obs, reward, done, _ = env.step(1)
-            else:
-                obs, reward, done, _ = env.step(0)
-
-            if done:
-                R += reward
-
-
-print("Monte Carlo First-Visit 选择，预期收入为：", R/n)
 
 env.close()
