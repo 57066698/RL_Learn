@@ -28,7 +28,7 @@ print(env.step(0))
 
 S_shape = (obs_space[0].n, obs_space[1].n, obs_space[2].n)
 PI = np.ones((*S_shape, 2), dtype=np.float) / 2  # 行动概率
-Q = np.ones((*S_shape, 2), dtype=np.float) * -100  # 行动回报
+Q = np.zeros((*S_shape, 2), dtype=np.float)  # 行动回报
 count_Q = np.zeros(Q.shape)  # 统计采取这个行动(s, a)的次数
 
 actions = np.array([0, 1])
@@ -48,11 +48,10 @@ for i in range(100000):
         done = False
         s = (my_hand, dealer, int(ace))
         action = np.random.choice(actions, p=PI[s])
+        Q_episode.append((s, action))
         obs, reward, done, _ = env.step(action)
-        if not done:
-            Q_episode.append((s, action))
-            my_hand, reward, done = obs
-        else:
+        my_hand, dealer, ace = obs
+        if done:
             G = reward
             for i in range(len(Q_episode) - 1, -1, -1):
                 G = 1.0 * G
