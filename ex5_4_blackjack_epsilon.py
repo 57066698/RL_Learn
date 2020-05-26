@@ -47,7 +47,6 @@ for i in range(100000):
     my_hand, dealer, ace = env.reset()
     done = False
     while not done:
-        done = False
         s = (my_hand, dealer, int(ace))
         action = np.random.choice(actions, p=PI[s])
         Q_episode.append((s, action))
