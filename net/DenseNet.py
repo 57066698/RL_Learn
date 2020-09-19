@@ -24,7 +24,7 @@ class DenseNet:
 
         self.cached_x = x
         self.cached_h = h  # [1, 512]
-        return z
+        return np.squeeze(z, axis=0)
 
     def backward(self, dz):
         # dz: [3]
@@ -50,4 +50,4 @@ if __name__ == "__main__":
         net.backward(dz)
         net.step()
 
-print(net.forward(x))
+    print(net.forward(x))
