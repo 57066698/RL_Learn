@@ -45,7 +45,6 @@ steps = 1  # store the total number of frames in a list
 e = 1
 epsilon_decay = 0.995
 
-
 def train_on_batch(model, batch, batch_size=batch_size):
     states = np.array([b[0] for b in batch])
     next_states = np.array([b[3] for b in batch])
@@ -100,7 +99,7 @@ for n in range(episodes):
         episode_survival += 1
 
         action = None
-        outputs = model.predict_on_batch(np.array([observation]))[0]
+        outputs = model.predict_on_batch([np.array(observation)])[0]
         # print(outputs)
         if random.uniform(0, 1) < e:
             action = env.action_space.sample()
