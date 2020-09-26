@@ -1,3 +1,6 @@
+# failed
+
+
 import numpy as np
 import gym
 from net.DenseNet import DenseNet
@@ -8,8 +11,6 @@ print(env.reset())
 print(env.action_space)
 print(env.step(0))
 
-
-
 num_episodes = 30
 max_step = 4000
 
@@ -17,7 +18,7 @@ env._max_episode_steps = max_step
 epsilon = .7
 alpha = 0.99
 lr = 0.0001
-dim = 100
+dim = 512
 
 net = DenseNet(2, 3, dim)
 
