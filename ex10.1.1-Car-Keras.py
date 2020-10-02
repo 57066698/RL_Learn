@@ -2,9 +2,12 @@ import keras
 from keras.models import Sequential
 from keras.layers import Dense, Activation
 
+from torch.utils.tensorboard import SummaryWriter
+
 import numpy as np
 import random
 from collections import deque
+import tensorboard
 
 import gym
 from gym import wrappers
@@ -20,20 +23,22 @@ discount_factor = 0.98  # the q learning future discount parameter
 
 inputs = env.observation_space.shape[0]
 
+
+dim = 128
 # Setup our NN and training environment in keras
 model = Sequential()
 # model.add(Dense(units=50, input_dim=env.observation_space.shape[0],
 #           kernel_initializer='zeros'))
-model.add(Dense(units=64*4, input_dim=env.observation_space.shape[0]))
-model.add(Activation('tanh'))
-model.add(Dense(units=64*4))
-model.add(Activation('tanh'))
+model.add(Dense(units=dim, input_dim=env.observation_space.shape[0]))
+# model.add(Activation('tanh'))
+# model.add(Dense(units=dim))
+# model.add(Activation('tanh'))
 model.add(Dense(units=env.action_space.n))
-model.add(Activation('linear'))
+# model.add(Activation('linear'))
 
 model.compile(loss=keras.losses.mean_squared_error,
-              optimizer=keras.optimizers.RMSprop(lr=0.001))
-
+              optimizer=keras.optimizers.Adam(lr=0.001))
+model.summary()
 model.save('models/0.h5')
 # store experiences. list of (s, a, r, s', done)
 experiences = deque([], maxlen=memory_size)
@@ -45,7 +50,12 @@ steps = 1  # store the total number of frames in a list
 e = 1
 epsilon_decay = 0.995
 
+writer = SummaryWriter()
+num_train = 0
+
 def train_on_batch(model, batch, batch_size=batch_size):
+    global num_train
+
     states = np.array([b[0] for b in batch])
     next_states = np.array([b[3] for b in batch])
     # feed our samples through the network to get our
@@ -63,7 +73,10 @@ def train_on_batch(model, batch, batch_size=batch_size):
         targets[i][batch[i][1]] = (batch[i][2]
                                    + (discount_factor * max_q
                                    if not batch[i][4] else 0))
-    model.train_on_batch(states, targets)
+    loss = model.train_on_batch(states, targets)
+    writer.add_scalar("Loss/train", loss, num_train)
+    num_train += 1
+
 
 
 def batch_weighted_selection(items, weights, weight_sum, num_selections):
@@ -99,7 +112,7 @@ for n in range(episodes):
         episode_survival += 1
 
         action = None
-        outputs = model.predict_on_batch([np.array(observation)])[0]
+        outputs = model.predict_on_batch(np.array([observation]))[0]
         # print(outputs)
         if random.uniform(0, 1) < e:
             action = env.action_space.sample()
@@ -110,7 +123,7 @@ for n in range(episodes):
                 [observation, action, reward, new_observation, done])
         # reward = (1 if done and episode_survival < 200 else
         #           -1+abs(observation[0]-start_point)+abs(observation[1]))
-        reward = 1 if done else reward
+        # reward = 1 if done else reward
         observation = new_observation
         episode_reward += reward
         steps += 1
@@ -136,3 +149,6 @@ for n in range(episodes):
     if episode_survival < 100 and not saved:
         saved = True
         model.save('models/a.h5')
+    writer.flush()
+
+writer.close()
