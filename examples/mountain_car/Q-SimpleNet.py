@@ -14,6 +14,7 @@ env = gym.make('MountainCar-v0')
 # 定义神经网络
 class QNet(Moduel):
     def __init__(self, in_dim, out_dim, hidden_dim):
+        super().__init__()
         self.dense1 = Dense(in_dim, hidden_dim)
         self.tanh1 = Tanh()
         self.dense2 = Dense(hidden_dim, out_dim)
@@ -34,16 +35,16 @@ optimizer = Adam(qNet, lr=0.001)
 
 def train_batch(qNet, off_policy_batch, discount_factor):
     # off_policy_batch [N, [s, a, r, s_next, done]]
-    s = off_policy_batch[:, 0]
+    s = np.array([batch[0] for batch in off_policy_batch])
+    a = np.array([batch[1] for batch in off_policy_batch])
+    r = np.array([batch[2] for batch in off_policy_batch])
+    s_ = np.array([batch[3] for batch in off_policy_batch])
+    done = np.array([batch[4] for batch in off_policy_batch], dtype=float)
+
     q = qNet(s)
-    s_ = off_policy_batch[:, 3]
     q_ = qNet(s_)
     max_q_ = np.max(q_, axis=1, keepdims=False)
-    done = off_policy_batch[:, 4]
-    r = off_policy_batch[:, 2]
-
     targets = np.copy(q)
-    a = off_policy_batch[:, 1]
     a = a[:, None]
     targets[a] = r + (discount_factor * max_q_ * (1 - done))
 
@@ -83,9 +84,39 @@ for n in range(episodes):
     while True:
         episode_survival += 1
         action = None
-        q_value = qNet(observation)[0, :]
+        q_value = qNet(observation)
 
         if random.uniform(0, 1) < e:
             action = env.action_space.sample()
         else:
             action = np.argmax(q_value)
+
+        new_observation, reward, done, info = env.step(action)
+        episode_experiences.append(
+            [observation,
+             action,
+             reward,
+             new_observation,
+             done]
+        )
+        reward = 1 if (done and new_observation[0] > 0.5) else reward
+        observation = new_observation
+        episode_reward += reward
+        steps += 1
+        if len(experiences) < 2*batch_size or n < 5:
+            pass
+        else:
+            selections = [random.choice(experiences) for i in range(batch_size)]
+            train_batch(qNet, selections, discount_factor)
+        if done:
+            break
+
+    experiences += episode_experiences
+
+    ep_lens.append(episode_survival)
+    print("%s, %s, %s, %s" % (n, episode_reward, episode_survival, e))
+    writer.flush()
+
+writer.close()
+
+
