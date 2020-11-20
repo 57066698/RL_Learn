@@ -43,10 +43,11 @@ def train_batch(qNet, off_policy_batch, discount_factor):
 
     q = qNet(s)
     q_ = qNet(s_)
-    max_q_ = np.max(q_, axis=1, keepdims=False)
+    max_q_ = np.argmax(q_, axis=1)
     targets = np.copy(q)
-    a = a[:, None]
-    targets[a] = r + (discount_factor * max_q_ * (1 - done))
+
+    for i in range(len(max_q_)):
+        targets[i, a[i]] = r[i] + (discount_factor * max_q_[i] * (1 - done[i]))
 
     # train
     optimizer.zero_grad()
@@ -118,5 +119,3 @@ for n in range(episodes):
     writer.flush()
 
 writer.close()
-
-
