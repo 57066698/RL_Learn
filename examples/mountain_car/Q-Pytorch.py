@@ -61,7 +61,7 @@ def train_on_batch(batch, batch_size=batch_size):
     s_ = torch.tensor([b[3] for b in batch], dtype=torch.float32).to(device)
     q_ = net(s_)
 
-    targets = q.detach().cpu().numpy()
+    targets = np.copy(q.detach().cpu().numpy())
     next_qs = q_.detach().cpu().numpy()
 
     for i in range(batch_size):
@@ -104,6 +104,7 @@ for n in range(episodes):
         else:
             action = np.argmax(outputs)
         new_observation, reward, done, info = env.step(action)
+        reward = 1 if (done and new_observation[0] > 0.5) else reward
         episode_experiences.append(
             [observation,
              action,
@@ -111,7 +112,7 @@ for n in range(episodes):
              new_observation,
              done]
         )
-        reward = 1 if (done and new_observation[0] > 0.5) else reward
+
         observation = new_observation
         episode_reward += reward
         steps += 1
