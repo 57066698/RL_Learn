@@ -1,3 +1,6 @@
+"""
+    N - step - Saras
+"""
 import simpleNet
 from simpleNet import Moduel
 from simpleNet.layers import Dense, Tanh
@@ -33,20 +36,20 @@ optimizer = Adam(qNet, lr=0.001)
 # 定义训练函数
 
 def train_batch(qNet, off_policy_batch, discount_factor):
-    # off_policy_batch [N, [s, a, r, s_next, done]]
+    # off_policy_batch [N, [s, [a, ..], [r, ..], s_n_next, s_n_done]]
     s = np.array([batch[0] for batch in off_policy_batch])
-    a = np.array([batch[1] for batch in off_policy_batch])
-    r = np.array([batch[2] for batch in off_policy_batch])
-    s_ = np.array([batch[3] for batch in off_policy_batch])
-    done = np.array([batch[4] for batch in off_policy_batch], dtype=float)
+    a_arr = np.array([batch[1] for batch in off_policy_batch])
+    r_arr = np.array([batch[2] for batch in off_policy_batch])
+    s_n_next = np.array([batch[3] for batch in off_policy_batch])
+    s_n_done = np.array([batch[4] for batch in off_policy_batch], dtype=float)
 
     q = qNet(s)
-    q_ = qNet(s_)
+    q_ = qNet(s_n_next)
     max_q_ = np.max(q_, axis=1)
     targets = np.copy(q)
 
     for i in range(len(off_policy_batch)):
-        targets[i, a[i]] = r[i] + (discount_factor * max_q_[i] * (1 - done[i]))
+        targets[i, a_arr[i][0]] = r_arr[i][0] + (discount_factor * max_q_[i] * (1 - done[i]))
 
     # train
     # optimizer.zero_grad()
@@ -72,6 +75,12 @@ weight_sum = 0
 steps = 0
 ep_lens = []
 episode_reward = 0
+
+
+def choose_step(experiences, i):
+    return [experiences[i][0], [experiences[i][1], experiences[i+1][1]], [experiences[i][2], experiences[i+1][2]]
+                                                                         , experiences[i+1][3], experiences[i+1][4]]
+
 
 if __name__ == "__main__":
 
@@ -111,7 +120,8 @@ if __name__ == "__main__":
             if len(experiences) < 2*batch_size or n < 5:
                 pass
             else:
-                selections = [random.choice(experiences) for i in range(batch_size)]
+                # pick step == 2 experiences batch
+                selections = [choose_step(experiences, random.randint(0, len(experiences) - 2)) for i in range(batch_size)]
                 train_batch(qNet, selections, discount_factor)
             if done:
                 break
