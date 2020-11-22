@@ -129,6 +129,4 @@ for n in range(episodes):
     print("%s, %s, %s, %s" % (n, episode_reward, episode_survival, e))
     writer.flush()
 
-
-
 writer.close()
